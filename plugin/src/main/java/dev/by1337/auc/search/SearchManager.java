@@ -4,6 +4,7 @@ import dev.by1337.auc.assets.McLang;
 import dev.by1337.auc.search.filter.MaterialSearchFilter;
 import dev.by1337.auc.search.filter.SearchFilter;
 import dev.by1337.auc.search.filter.SearchFilterParser;
+import dev.by1337.core.util.misc.Pair;
 import dev.by1337.yaml.decoder.RecordYamlDecoder;
 import dev.by1337.yaml.decoder.YamlDecoder;
 import net.kyori.adventure.translation.Translatable;
@@ -12,15 +13,15 @@ import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.Registry;
 import org.bukkit.enchantments.Enchantment;
+import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class SearchManager {
     public static final YamlDecoder<SearchManager> DECODER = SearchConfig.DECODER.map(SearchManager::new);
+    private final Map<Material, MaterialSearchFilter> material_filters = new EnumMap<>(Material.class);
+    private final Map<Material, String> material_translates = new EnumMap<>(Material.class);
     private final SearchConfig config;
     private Trie<SearchFilter> trie;
     private Locale locale;
@@ -38,7 +39,11 @@ public class SearchManager {
         }
         //addRegistry(Registry.MATERIAL, lang);
         for (Material material : Registry.MATERIAL) {
-            addLookup(lang.getTranslation(material.translationKey()), new MaterialSearchFilter(material));
+            final MaterialSearchFilter filter = new MaterialSearchFilter(material);
+            final String translate = lang.getTranslation(material.translationKey());
+            material_filters.put(material, filter);
+            material_translates.put(material, translate);
+            addLookup(translate, filter);
         }
         addRegistry(Registry.POTION_EFFECT_TYPE, lang);
         for (Enchantment enchantment : Registry.ENCHANTMENT) {
@@ -81,6 +86,14 @@ public class SearchManager {
         return set;
     }
 
+    public @Nullable Pair<String, SearchFilter> filterForItem(Material material) {
+        if (material == Material.AIR) return null;
+
+        final MaterialSearchFilter mfilter = material_filters.get(material);
+        final String translate = material_translates.get(material);
+
+        return Pair.of(translate, mfilter);
+    }
 
     public static class SearchConfig {
         public static final YamlDecoder<SearchConfig> DECODER = RecordYamlDecoder.mapOf(

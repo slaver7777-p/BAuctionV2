@@ -37,8 +37,7 @@ public class ByLocaleSelector<T> {
         var lang = locale.getLanguage();
         t = byLC.get(lang + "-" + locale.getCountry());
         if (t != null) return t;
-        var v = byLanguage.get(lang);
-        return v;
+        return byLanguage.get(lang);
     }
 
     public void add(Locale locale, T value) {

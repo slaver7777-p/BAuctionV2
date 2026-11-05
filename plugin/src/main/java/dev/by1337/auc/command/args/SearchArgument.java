@@ -19,6 +19,7 @@ import java.util.Locale;
 
 public class SearchArgument<C extends CommandSender> extends Argument<C, Pair<String, SearchFilter>> {
     private static final Logger log = LoggerFactory.getLogger(SearchArgument.class);
+    private static final Comparator<String> LENGTH = Comparator.comparingInt(String::length);
     private final ByLocaleSelector<SearchManager> search;
     private final ArgumentNumber<C> argumentNumber = new ArgumentNumber<>("$number");
     private final Config config;
@@ -107,7 +108,7 @@ public class SearchArgument<C extends CommandSender> extends Argument<C, Pair<St
         }
 
         var s = manager.trie().getSuggestions(input, 100);
-        s.sort(Comparator.comparingInt(String::length));
+        s.sort(LENGTH);
         for (String suggestion : s) {
             int idx = suggestion.lastIndexOf(' ', input.length() - 1);
 
