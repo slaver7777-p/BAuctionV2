@@ -9,6 +9,7 @@ import dev.by1337.sync.common.callback.ResponseFuture;
 import dev.by1337.sync.common.channel.ChannelMessage;
 import dev.by1337.sync.common.channel.handler.request.IncomingRequest;
 import dev.by1337.sync.common.channel.handler.request.RequestMsg;
+import dev.by1337.sync.common.packet.Packet;
 import dev.by1337.sync.common.packet.impl.AckRequest;
 import dev.by1337.sync.common.packet.impl.RequestPacket;
 import dev.by1337.sync.common.packet.impl.ResponsePacket;
@@ -66,49 +67,52 @@ public class LocalRequestsHandler implements LocalChannelHandler {
 
     @Override
     public void handle(LocalChannelContext ctx, ChannelMessage msg) throws Exception {
-        if (msg instanceof RequestMsg<?> r) {
-            if (closing) {
-                try {
-                    r.consumer().complete(null);
-                } catch (Exception e) {
-                    log.error("Failed to accept empty response cuz closing", e);
-                }
-            } else {
-                remote.write(
-                        new RequestPacket(newRequest(r.consumer(), r.timeoutMs()).id, r.packet())
-                );
-            }
-        } else if (msg instanceof ResponsePacket r) {
-            var v = requests.remove(r.uid());
-            if (v != null) {
-                // noinspection unchecked
-                ResponseFuture<ChannelMessage> callback = (ResponseFuture<ChannelMessage>) v.callback;
-                try {
-                    callback.complete(r.payload());
-                } catch (ClassCastException e) {
-                    log.error("Bad response type", e);
+        switch (msg) {
+            case RequestMsg<?> r -> {
+                if (closing) {
                     try {
-                        callback.complete(null);
-                    } catch (Exception e1) {
-                        log.error("Failed to accept response", e1);
+                        r.consumer().complete(null);
+                    } catch (Exception e) {
+                        log.error("Failed to accept empty response cuz closing", e);
                     }
-                } catch (Exception e) {
-                    log.error("Failed to accept response", e);
+                } else {
+                    remote.write(
+                            new RequestPacket(newRequest(r.consumer(), r.timeoutMs()).id, r.packet())
+                    );
                 }
             }
-        } else if (msg instanceof RequestPacket r) {
-            if (r.payload() instanceof AckRequest ack) {
-                pipeline.execute(ack.payload());
-                remote.write(new ResponsePacket(r.uid(), AckRequest.AckResponse.INSTANCE));
-            } else {
-                pipeline.execute(
-                        new IncomingRequest(r.payload(),
-                                result -> remote.write(new ResponsePacket(r.uid(), result))
-                        )
-                );
+            case ResponsePacket r -> {
+                var v = requests.remove(r.uid());
+                if (v != null) {
+                    // noinspection unchecked
+                    ResponseFuture<ChannelMessage> callback = (ResponseFuture<ChannelMessage>) v.callback;
+                    try {
+                        callback.complete(r.payload());
+                    } catch (ClassCastException e) {
+                        log.error("Bad response type", e);
+                        try {
+                            callback.complete(null);
+                        } catch (Exception e1) {
+                            log.error("Failed to accept response", e1);
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to accept response", e);
+                    }
+                }
             }
-        } else {
-            ctx.fire(msg);
+            case RequestPacket r -> {
+                if (r.payload() instanceof AckRequest(Packet payload)) {
+                    pipeline.execute(payload);
+                    remote.write(new ResponsePacket(r.uid(), AckRequest.AckResponse.INSTANCE));
+                } else {
+                    pipeline.execute(
+                            new IncomingRequest(r.payload(),
+                                    result -> remote.write(new ResponsePacket(r.uid(), result))
+                            )
+                    );
+                }
+            }
+            case null, default -> ctx.fire(msg);
         }
     }
 

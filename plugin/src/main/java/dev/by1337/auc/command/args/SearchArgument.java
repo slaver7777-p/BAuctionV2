@@ -123,8 +123,9 @@ public class SearchArgument<C extends CommandSender> extends Argument<C, Pair<St
     private String readAll(CommandReader reader) {
         String src = reader.src();
         int idx = reader.ridx();
-        if (idx < src.length()) {
-            reader.ridx(src.length());
+        final int length = src.length();
+        if (idx < length) {
+            reader.ridx(length);
             return src.substring(idx).toLowerCase(Locale.ROOT);
         }
         return "";
